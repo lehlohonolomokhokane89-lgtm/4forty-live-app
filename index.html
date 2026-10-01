@@ -2,478 +2,567 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>4FORTY - LIVE</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>4FORTY LIVE - SA Super App</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    *{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
-    body{background:#000;color:#fff}
-    .header{background:#FFD700;color:#000;padding:12px;text-align:center;position:sticky;top:0;z-index:999}
-    .live{width:10px;height:10px;background:red;border-radius:50%;display:inline-block;animation:blink 1s infinite}
-    @keyframes blink{50%{opacity:0}}
-    .tabs{display:flex;background:#111}
-    .tabs button{flex:1;padding:12px;background:#111;color:#FFD700;border:none;font-weight:bold;cursor:pointer}
-    .tabs button.active{background:#FFD700;color:#000}
-    .tabs button:hover{opacity:0.8}
-    .card{background:#111;border:1px solid #333;border-left:4px solid #FFD700;margin:10px;padding:12px;border-radius:10px}
-    .gold{border-left-color:#FFD700;background:#1a1500}
-    .btn{width:100%;padding:14px;background:#FFD700;color:#000;border:none;border-radius:8px;font-weight:bold;margin-top:8px;cursor:pointer}
-    .btn:hover{opacity:0.9}
-    .btn-green{background:#25D366;color:#fff}
-    .btn-red{background:#d32f2f;color:#fff}
-    input,select{width:100%;padding:12px;margin:6px 0;border-radius:8px;border:none}
-    #map{height:300px;margin:10px;border-radius:10px}
-    .route-chips{display:flex;overflow:auto;gap:8px;padding:10px}
-    .chip{white-space:nowrap;padding:8px 14px;background:#222;border:1px solid #FFD700;border-radius:20px;color:#FFD700;cursor:pointer}
-    .chip.active{background:#FFD700;color:#000}
-    .chip:hover{opacity:0.8}
-    .status{padding:10px;margin:8px 0;border-radius:8px;text-align:center}
-    .status.error{background:#d32f2f;color:#fff}
-    .status.success{background:#388e3c;color:#fff}
-    .status.info{background:#1976d2;color:#fff}
-    .otp-section{display:none}
-    .hidden{display:none}
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+    body { background: #f0f2f5; }
+    .header {
+      background: #1877f2;
+      color: white;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .btn {
+      background: #1877f2;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 3px;
+      font-weight: 600;
+    }
+    .btn-gold { background: gold; color: #000; font-weight: bold; }
+    .btn-green { background: #42b72a; }
+    .card {
+      background: white;
+      margin: 8px;
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.2);
+    }
+    .input {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    textarea.input { resize: vertical; min-height: 80px; }
+    .badge-gold {
+      background: gold;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: bold;
+      color: #000;
+    }
+    .map { height: 300px; width: 100%; border-radius: 8px; }
+    .chatbox {
+      height: 250px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 8px;
+      background: white;
+      border-radius: 6px;
+    }
+    .ad-banner {
+      background: #000;
+      color: white;
+      text-align: center;
+      padding: 8px;
+      margin: 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .ad-banner a { color: gold; text-decoration: none; font-weight: bold; }
+    .podcast { border-left: 4px solid #1877f2; }
+    .muted { color: #666; font-size: 12px; }
+    .status-box {
+      background: #f6f7f9;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 8px;
+      color: #333;
+      font-size: 13px;
+    }
+    @media (max-width: 640px) {
+      .header {
+        justify-content: center;
+      }
+      .header > div {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="header">
-    <h3>🚕 4FORTY <span class="live"></span> LIVE - Premium Taxi Service</h3>
-    <small id="userPhone">Not logged in</small>
-  </div>
-
-  <div class="tabs">
-    <button class="active" onclick="showTab('passenger')">PASSENGER</button>
-    <button onclick="showTab('driver')">DRIVER</button>
-    <button onclick="showTab('map')">MAP</button>
-  </div>
-
-  <!-- LOGIN MODAL -->
-  <div class="card" id="loginCard">
-    <h4>🇿🇦 Login with OTP</h4>
-    <input id="phone" type="tel" placeholder="+27796230493" value="+27796230493">
-    <button class="btn" onclick="requestOTP()">REQUEST OTP</button>
-    
-    <div class="otp-section" id="otpSection">
-      <hr style="margin:12px 0;border:none;border-top:1px solid #333">
-      <input id="otpCode" type="text" placeholder="Enter 6-digit OTP" maxlength="6">
-      <button class="btn" onclick="verifyOTP()">VERIFY OTP</button>
-      <button class="btn btn-red" onclick="cancelOTP()">CANCEL</button>
-      <div id="otpStatus" style="margin-top:8px;color:#0f0"></div>
+    <b>4FORTY LIVE</b>
+    <div>
+      <button class="btn" onclick="showPage('feed')">Feed</button>
+      <button class="btn" onclick="showPage('map')">Map</button>
+      <button class="btn" onclick="showPage('chat')">Chat</button>
+      <button class="btn" onclick="showPage('podcast')">Podcasts</button>
+      <button class="btn btn-gold" onclick="showPage('verify')">Verify R100</button>
     </div>
   </div>
 
-  <div class="route-chips" id="routeChips"></div>
-
-  <!-- PASSENGER TAB -->
-  <div id="passengerTab">
-    <div class="card">
-      <h4>📍 Book Taxi - Instant Confirmation</h4>
-      <select id="fromRoute">
-        <option>Ngwathe</option>
-        <option>Parys</option>
-        <option>Sasolburg</option>
-        <option>Vanderbijlpark</option>
-        <option>Johannesburg</option>
-      </select>
-
-      <select id="toRoute">
-        <option>Johannesburg</option>
-        <option>Sasolburg</option>
-        <option>Parys</option>
-        <option>Ngwathe</option>
-      </select>
-
-      <input id="pName" type="text" placeholder="Your name">
-      <button class="btn" onclick="bookNow()">BOOK NOW - Driver calls you</button>
-      <button class="btn btn-green" onclick="waBook()">💬 Share on WhatsApp</button>
-      <div id="bookStatus" style="margin-top:8px"></div>
-    </div>
-
-    <div id="taxiList"></div>
+  <div class="ad-banner">
+    🎰 BETWAY - Bet Now - 18+ Gamble Responsibly
+    <a href="https://www.betway.co.za" target="_blank">BETWAY.CO.ZA</a> |
+    <a href="https://www.hollywoodbets.net" target="_blank">HOLLYWOODBETS</a> - Spina Zonke
   </div>
 
-  <!-- DRIVER TAB -->
-  <div id="driverTab" style="display:none">
-    <div class="card gold">
-      <h4>🚕 Driver Portal - GOLD Member (R100/month)</h4>
-      
-      <div id="driverLoginSection">
-        <p style="margin:8px 0">Login to manage your taxi status</p>
-        <button class="btn" onclick="switchToDriverLogin()">Login as Driver</button>
+  <div id="loginPage" class="card">
+    <h2>Log in like Facebook</h2>
+    <input id="fbName" class="input" placeholder="Full Name" />
+    <input id="fbPhone" class="input" placeholder="Phone e.g. 0655846692" />
+    <textarea id="fbBio" class="input" placeholder="Bio - e.g. Driver from Ngwathe, 10 years"></textarea>
+    <input id="fbPic" class="input" placeholder="Profile Pic Link (or leave blank)" />
+    <button class="btn" style="width:100%" onclick="fbLogin()">Create Profile / Login</button>
+    <button class="btn btn-green" style="width:100%" onclick="inviteFacebook()">Invite Friends from Facebook</button>
+    <p class="muted">No data? Works offline - saves locally</p>
+  </div>
+
+  <div id="appPage" style="display:none">
+    <div id="profileCard" class="card"></div>
+
+    <div id="feedPage">
+      <div class="card">
+        <h3>SA Routes - 90 Routes</h3>
+        <select id="routeSelect" class="input"></select>
+        <button class="btn" onclick="bookRoute()">BOOK THIS ROUTE</button>
       </div>
+      <div id="taxiList" class="card">Loading GOLD taxis...</div>
+    </div>
 
-      <div id="driverPanelSection" style="display:none">
-        <input id="dPlate" type="text" placeholder="License Plate e.g. GP-01-ABC">
-        <select id="dRoute">
-          <option>Ngwathe - JHB</option>
-          <option>Parys - JHB</option>
-          <option>Sasolburg - JHB</option>
-          <option>Ngwathe - Parys</option>
-          <option>Ngwathe - Sasolburg</option>
+    <div id="mapPage" style="display:none">
+      <div class="card">
+        <h3>GPS - Taxi LIVE Map</h3>
+        <div id="map" class="map"></div>
+        <button class="btn btn-gold" onclick="goLive()">DRIVER: GO LIVE GOLD</button>
+        <input id="plateInput" class="input" placeholder="Plate e.g. FS 123 GP" />
+      </div>
+    </div>
+
+    <div id="chatPage" style="display:none">
+      <div class="card">
+        <h3>Group Chats - By Route</h3>
+        <select id="groupSelect" class="input">
+          <option>Ngwathe-JHB Group</option>
+          <option>Parys-Sasolburg Group</option>
+          <option>All SA Group</option>
         </select>
-        
-        <button class="btn" onclick="goLive()">🔴 GO LIVE - Show on map</button>
-        <button class="btn btn-green" onclick="payGold()">💳 Pay GOLD R100 - WhatsApp</button>
-        <button class="btn btn-red" onclick="logoutDriver()">Logout</button>
-        <div id="driverStatus"></div>
+        <div id="groupChatBox" class="chatbox"></div>
+        <input id="groupMsg" class="input" placeholder="Type group message..." />
+        <button class="btn" onclick="sendGroup()">Send Group</button>
+        <button class="btn" onclick="sendVoice()">🎤 Voice Note</button>
+      </div>
+
+      <div class="card">
+        <h3>One-on-One Chat like Facebook</h3>
+        <input id="chatToPhone" class="input" placeholder="Chat to phone e.g. 0796230493" />
+        <div id="oneChatBox" class="chatbox"></div>
+        <input id="oneMsg" class="input" placeholder="Type private message..." />
+        <button class="btn" onclick="sendOne()">Send Private</button>
+      </div>
+    </div>
+
+    <div id="podcastPage" style="display:none">
+      <div class="card podcast">
+        <h3>Rank Podcast - Taxi Talks</h3>
+        <p>Episode 1: How to make R1000/day at rank</p>
+        <audio controls style="width:100%" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"></audio>
+        <button class="btn" onclick="subscribePod()">Subscribe</button>
+        <span id="subCount">0 subscribers</span>
+      </div>
+
+      <div class="card podcast">
+        <h3>Hustle Board for Youth</h3>
+        <p>🔥 Today: Car Wash R50 at Engen Parys - Apply now</p>
+        <button class="btn btn-gold" onclick="applyJob()">Apply - One Tap</button>
+      </div>
+    </div>
+
+    <div id="verifyPage" style="display:none">
+      <div class="card" style="border:2px solid gold">
+        <h3>R100 Verification Monthly - GOLD Badge</h3>
+        <p>Send R100 Cash Send to: <b>0655846692</b> - Reference: Your Plate</p>
+        <p>After sending, click verified below - Admin will confirm in 24h</p>
+        <input id="verifyPlate" class="input" placeholder="Your Taxi Plate" />
+        <input id="verifyProof" class="input" placeholder="CashSend Reference / Proof" />
+        <button class="btn btn-gold" style="width:100%" onclick="requestVerify()">I SENT R100 - REQUEST GOLD BADGE</button>
+        <div id="verifyStatus" class="status-box"></div>
       </div>
     </div>
   </div>
 
-  <!-- MAP TAB -->
-  <div id="mapTab" style="display:none">
-    <div id="map"></div>
-    <div class="card"><small>🟡 Yellow pins = Active GOLD taxis • Updates every 10s</small></div>
-  </div>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    // ===== CONFIG =====
-    const SUPABASE_URL = "https://YOURPROJECT.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_XXXXXXXXXXXXXXXXXXXXXXXX";
-    const supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const SUPABASE_URL = "https://grxigphpzrmfdiaykitk.supabase.co";
+    const SUPABASE_ANON = "REPLACE_WITH_YOUR_ANON_KEY_FOR_grxigphpzrmfdiaykitk";
 
-    // ===== STATE =====
-    let currentPhone = localStorage.getItem("phone") || "";
-    let currentUserId = localStorage.getItem("userId") || "";
-    let pendingOtpPhone = "";
-    let map;
-    let markers = [];
-    let isDriver = false;
+    const supabase = (
+      window.supabase &&
+      SUPABASE_ANON &&
+      !SUPABASE_ANON.includes("REPLACE_WITH_YOUR_ANON_KEY")
+    ) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
 
-    const ROUTES = [
-      "All",
-      "Ngwathe-JHB",
-      "Parys-JHB",
-      "Sasolburg-JHB",
-      "Ngwathe-Parys",
-      "Ngwathe-Sasolburg",
-      "Vanderbijlpark-JHB",
-      "Parys-Sasolburg"
+    const routes = [
+      "Ngwathe-JHB","Ngwathe-Parys","Parys-Sasolburg","Sasolburg-Vanderbijlpark","Vanderbijlpark-JHB",
+      "Ngwathe-Vereeniging","Parys-JHB","Kroonstad-JHB","Heilbron-JHB","Sasolburg-JHB",
+      "Vredefort-Parys","Tumahole-Parys","Soweto-JHB","Soweto-Pretoria","JHB-Durban",
+      "JHB-Cape Town","JHB-Polokwane","JHB-Bloemfontein","Ngwathe-Bloemfontein","Parys-Bloemfontein"
     ];
 
-    // ===== INITIALIZATION =====
-    function initChips() {
-      const c = document.getElementById("routeChips");
-      c.innerHTML = "";
-      ROUTES.forEach(r => {
-        const b = document.createElement("div");
-        b.className = "chip";
-        b.innerText = r;
-        if (r === "All") b.classList.add("active");
-        b.onclick = () => {
-          document.querySelectorAll(".chip").forEach(x => x.classList.remove("active"));
-          b.classList.add("active");
-          loadTaxis(r);
-        };
-        c.appendChild(b);
+    let map, markers = [];
+
+    function showPage(page) {
+      const sections = [
+        ['feedPage', page === 'feed'],
+        ['mapPage', page === 'map'],
+        ['chatPage', page === 'chat'],
+        ['podcastPage', page === 'podcast'],
+        ['verifyPage', page === 'verify']
+      ];
+
+      sections.forEach(([id, show]) => {
+        document.getElementById(id).style.display = show ? 'block' : 'none';
+      });
+
+      if (page === 'map') setTimeout(initMap, 300);
+    }
+
+    function fbLogin() {
+      const name = document.getElementById('fbName').value || 'Youth';
+      const phone = document.getElementById('fbPhone').value || '0655846692';
+      const bio = document.getElementById('fbBio').value || 'Taxi user from SA';
+      const pic = document.getElementById('fbPic').value || 'https://via.placeholder.com/100';
+
+      if (phone.length < 10) {
+        alert('Phone 10 digits required');
+        return;
+      }
+
+      const profile = { name, phone, bio, pic };
+      localStorage.setItem('fourforty_profile', JSON.stringify(profile));
+
+      if (supabase) {
+        try {
+          supabase.from('users').upsert({
+            phone,
+            name,
+            bio,
+            pic,
+            last_login: new Date().toISOString()
+          });
+        } catch (e) {}
+      }
+
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('appPage').style.display = 'block';
+      document.getElementById('profileCard').innerHTML = `
+        <img src="${pic}" style="width:50px;border-radius:50%;vertical-align:middle;margin-right:10px" />
+        <b>${name}</b> <span class="badge-gold">USER</span><br>
+        <small>${bio} - ${phone}</small><br>
+        <button class="btn" onclick="inviteFacebook()">Invite Facebook Friends</button>
+      `;
+
+      loadRoutes();
+      loadTaxis();
+      loadChats();
+    }
+
+    function inviteFacebook() {
+      const link = 'https://fourforty-zeta.vercel.app';
+      const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}&quote=Join%204FORTY%20LIVE%20-%20Taxi%20LIVE%20Map%20SA`;
+      window.open(fbUrl, '_blank');
+      alert('Facebook share opened! Invite friends to: ' + link);
+    }
+
+    function loadRoutes() {
+      const sel = document.getElementById('routeSelect');
+      sel.innerHTML = '';
+      routes.forEach(route => {
+        const option = document.createElement('option');
+        option.value = route;
+        option.text = route;
+        sel.appendChild(option);
       });
     }
 
-    // ===== AUTHENTICATION =====
-    async function requestOTP() {
-      const phone = document.getElementById("phone").value.trim();
-      if (!phone || phone.length < 10) {
-        showOtpStatus("Enter valid phone number", "error");
-        return;
-      }
+    async function bookRoute() {
+      const route = document.getElementById('routeSelect').value;
+      const profile = JSON.parse(localStorage.getItem('fourforty_profile') || '{}');
+      const msg = `BOOK: ${profile.name || 'Passenger'} ${profile.phone || 'N/A'} Route:${route} via 4FORTY LIVE`;
+      window.open(`https://wa.me/27796230493?text=${encodeURIComponent(msg)}`, '_blank');
+      alert('✅ BOOKED ' + route);
 
-      pendingOtpPhone = phone;
-      document.getElementById("otpSection").style.display = "block";
-      showOtpStatus("✅ OTP sent to " + phone, "success");
-      
-      // In production, this would be handled by Supabase Auth or a backend function
-      // For demo: any 6-digit code works
-      console.log("Demo OTP: 123456");
-    }
-
-    async function verifyOTP() {
-      const otpCode = document.getElementById("otpCode").value.trim();
-      if (otpCode.length !== 6 || isNaN(otpCode)) {
-        showOtpStatus("Enter 6-digit code", "error");
-        return;
-      }
-
-      // Demo: Accept any 6-digit code
-      // In production: validate against backend/Supabase Auth
-      if (!/^\d{6}$/.test(otpCode)) {
-        showOtpStatus("Invalid OTP", "error");
-        return;
-      }
-
-      currentPhone = pendingOtpPhone;
-      localStorage.setItem("phone", currentPhone);
-      
-      document.getElementById("userPhone").innerText = currentPhone + " | LIVE ✅";
-      document.getElementById("loginCard").style.display = "none";
-      document.getElementById("pName").value = "";
-      
-      loadTaxis("All");
-      showOtpStatus("", "success");
-    }
-
-    function cancelOTP() {
-      document.getElementById("otpSection").style.display = "none";
-      document.getElementById("otpCode").value = "";
-      showOtpStatus("", "info");
-    }
-
-    function showOtpStatus(msg, type) {
-      const el = document.getElementById("otpStatus");
-      el.innerText = msg;
-      el.className = "status " + type;
-    }
-
-    function logout() {
-      currentPhone = "";
-      currentUserId = "";
-      isDriver = false;
-      localStorage.removeItem("phone");
-      localStorage.removeItem("userId");
-      document.getElementById("loginCard").style.display = "block";
-      document.getElementById("userPhone").innerText = "Not logged in";
-      document.getElementById("phone").value = "";
-      document.getElementById("otpCode").value = "";
-      document.getElementById("otpSection").style.display = "none";
-    }
-
-    // ===== TABS =====
-    function showTab(tab) {
-      document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active"));
-      event.target.classList.add("active");
-
-      document.getElementById("passengerTab").style.display = tab === "passenger" ? "block" : "none";
-      document.getElementById("driverTab").style.display = tab === "driver" ? "block" : "none";
-      document.getElementById("mapTab").style.display = tab === "map" ? "block" : "none";
-
-      if (tab === "map") setTimeout(initMap, 200);
-    }
-
-    // ===== PASSENGER BOOKING =====
-    async function loadTaxis(filter) {
-      try {
-        let q = supa.from("taxis").select("*").eq("is_gold", true).limit(90).order("updated_at", { ascending: false });
-
-        if (filter && filter !== "All") {
-          const key = filter.split("-")[0];
-          q = q.ilike("route", "%" + key + "%");
+      if (supabase) {
+        try {
+          await supabase.from('bookings').insert({
+            passenger_name: profile.name || 'Passenger',
+            phone: profile.phone || 'N/A',
+            route
+          });
+        } catch (e) {
+          localStorage.setItem('offline_book', '1');
         }
+      }
+    }
 
-        const { data, error } = await q;
-        if (error) throw error;
+    function readLocalTaxis() {
+      const raw = JSON.parse(localStorage.getItem('fourforty_taxis') || '[]');
+      return Array.isArray(raw) ? raw : [];
+    }
 
-        const list = document.getElementById("taxiList");
-        list.innerHTML = "";
+    function saveLocalTaxis(taxis) {
+      localStorage.setItem('fourforty_taxis', JSON.stringify(taxis));
+    }
 
-        if (!data || data.length === 0) {
-          list.innerHTML = "<div class='card'>No GOLD taxis available - Check back soon</div>";
-          updateMapMarkers([]);
-          return;
-        }
+    async function loadTaxis() {
+      const listEl = document.getElementById('taxiList');
+      let items = readLocalTaxis();
 
-        data.forEach(tx => {
-          const d = document.createElement("div");
-          d.className = "card gold";
-          const timeAgo = Math.floor((Date.now() - new Date(tx.updated_at).getTime()) / 1000);
-          const timeStr = timeAgo < 60 ? "now" : Math.floor(timeAgo / 60) + "m ago";
-          d.innerHTML = `
-            <b style="color:#FFD700">${tx.plate || "GOLD"} <span class="live"></span></b><br>
-            <small>${tx.route || "Route"} • ${tx.driver || "Driver"} • Updated ${timeStr}</small><br>
-            <button class="btn" onclick="callDriver('${tx.phone || "0796230493"}')">
-              📞 CALL ${tx.plate}
-            </button>
-          `;
-          list.appendChild(d);
+      if (supabase) {
+        try {
+          const { data, error } = await supabase.from('taxis').select('*').eq('is_live', true);
+          if (!error && data && data.length) {
+            items = data;
+            saveLocalTaxis(items);
+          }
+        } catch (e) {}
+      }
+
+      let html = '<h3>GOLD LIVE Taxis</h3>';
+      if (!items || items.length === 0) {
+        html += 'No GOLD taxis yet. Drivers GO LIVE!';
+      } else {
+        items.forEach(t => {
+          const plate = t.plate || 'FS 123';
+          const route = t.route || 'Ngwathe-JHB';
+          const seats = t.seats_left || 4;
+          const verified = t.is_verified ? 'VERIFIED GOLD' : 'LIVE';
+          html += `<div class="card">🚕 ${plate} - ${route} <span class="badge-gold">${verified}</span> Seats:${seats}</div>`;
         });
-
-        updateMapMarkers(data);
-      } catch (e) {
-        console.log(e);
-      }
-    }
-
-    async function bookNow() {
-      if (!currentPhone) {
-        alert("Please login first");
-        return;
       }
 
-      const from = document.getElementById("fromRoute").value;
-      const to = document.getElementById("toRoute").value;
-      const name = document.getElementById("pName").value.trim();
-
-      if (!name) {
-        alert("Enter your name");
-        return;
-      }
-
-      try {
-        const { error } = await supa.from("bookings").insert([{
-          from_route: from,
-          to_route: to,
-          passenger_name: name,
-          passenger_phone: currentPhone,
-          created_at: new Date()
-        }]);
-
-        if (error) throw error;
-        
-        showBookingStatus("✅ Booking confirmed! Driver will call you shortly.", "success");
-        setTimeout(() => waBook(), 1000);
-      } catch (e) {
-        showBookingStatus("Error: " + e.message, "error");
-      }
+      listEl.innerHTML = html;
     }
 
-    function waBook() {
-      const from = document.getElementById("fromRoute").value;
-      const to = document.getElementById("toRoute").value;
-      window.open(
-        `https://wa.me/27796230493?text=4FORTY: ${from} to ${to} | ${currentPhone}`,
-        "_blank"
-      );
+    function initMap() {
+      if (map) return;
+      map = L.map('map').setView([-26.75, 27.45], 9);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      const taxiData = readLocalTaxis();
+      taxiData.forEach(showTaxiMarker);
     }
 
-    function showBookingStatus(msg, type) {
-      const el = document.getElementById("bookStatus");
-      el.innerText = msg;
-      el.className = "status " + type;
-    }
-
-    function callDriver(phone) {
-      window.location.href = `tel:${phone}`;
-    }
-
-    // ===== DRIVER MODE =====
-    function switchToDriverLogin() {
-      if (!currentPhone) {
-        alert("Please login first");
-        return;
-      }
-      document.getElementById("driverLoginSection").style.display = "none";
-      document.getElementById("driverPanelSection").style.display = "block";
-      isDriver = true;
+    function showTaxiMarker(t) {
+      if (!map || !t || !Number(t.lat) || !Number(t.lng)) return;
+      const marker = L.marker([Number(t.lat), Number(t.lng)]).addTo(map).bindPopup(`${t.plate || 'Taxi'}<br>${t.route || 'Route'}<br>LIVE GOLD`);
+      markers.push(marker);
     }
 
     async function goLive() {
-      const plate = document.getElementById("dPlate").value.trim().toUpperCase();
-      const route = document.getElementById("dRoute").value.trim();
-
-      if (!plate || plate.length < 5) {
-        showDriverStatus("Enter valid license plate", "error");
+      const plate = document.getElementById('plateInput').value || 'FS 123 GP';
+      const profile = JSON.parse(localStorage.getItem('fourforty_profile') || '{}');
+      if (!navigator.geolocation) {
+        alert('GPS not supported');
         return;
       }
 
-      if (!currentPhone) {
-        showDriverStatus("Not logged in", "error");
-        return;
-      }
+      navigator.geolocation.getCurrentPosition(async pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
 
-      try {
-        // Check if driver paid
-        const { data: driverCheck } = await supa.from("drivers")
-          .select("*")
-          .eq("phone", currentPhone)
-          .single();
-
-        if (!driverCheck || !driverCheck.paid) {
-          showDriverStatus("⚠️ GOLD membership required - Pay R100 first", "error");
-          return;
-        }
-
-        // Update taxi with real location (demo: random within region)
-        const { error } = await supa.from("taxis").upsert({
+        const taxi = {
           plate,
-          route,
-          driver: currentPhone,
-          phone: currentPhone,
-          status: "LIVE",
-          is_gold: true,
-          lat: -26.8 + (Math.random() * 0.3 - 0.15),
-          lng: 27.8 + (Math.random() * 0.3 - 0.15),
-          updated_at: new Date()
-        }, { onConflict: "plate" });
+          route: document.getElementById('routeSelect').value,
+          lat,
+          lng,
+          is_live: true,
+          is_verified: false,
+          driver_phone: profile.phone || 'N/A',
+          seats_left: 15
+        };
 
-        if (error) throw error;
-
-        showDriverStatus("✅ LIVE GOLD! Your taxi is on map now.", "success");
-        loadTaxis("All");
-      } catch (e) {
-        showDriverStatus("Error: " + e.message, "error");
-      }
-    }
-
-    function payGold() {
-      const plate = document.getElementById("dPlate").value.trim().toUpperCase();
-      if (!plate) {
-        alert("Enter your plate first");
-        return;
-      }
-      window.open(
-        `https://wa.me/27796230493?text=4FORTY GOLD PAYMENT: Plate ${plate} | Phone ${currentPhone}`,
-        "_blank"
-      );
-    }
-
-    function logoutDriver() {
-      isDriver = false;
-      document.getElementById("driverLoginSection").style.display = "block";
-      document.getElementById("driverPanelSection").style.display = "none";
-      document.getElementById("dPlate").value = "";
-      document.getElementById("driverStatus").innerText = "";
-    }
-
-    function showDriverStatus(msg, type) {
-      const el = document.getElementById("driverStatus");
-      el.innerText = msg;
-      el.className = "status " + type;
-    }
-
-    // ===== MAP =====
-    function initMap() {
-      if (map) return;
-      map = L.map("map").setView([-26.8, 27.8], 9);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap",
-        maxZoom: 18
-      }).addTo(map);
-      loadTaxis("All");
-    }
-
-    function updateMapMarkers(data) {
-      if (!map) return;
-      markers.forEach(m => map.removeLayer(m));
-      markers = [];
-
-      data.forEach(tx => {
-        if (tx.lat && tx.lng) {
-          const m = L.marker([tx.lat, tx.lng], {
-            title: tx.plate
-          }).addTo(map).bindPopup(`<b>${tx.plate}</b><br>${tx.route}<br>📞 ${tx.phone}`);
-          markers.push(m);
+        if (map) {
+          L.marker([lat, lng]).addTo(map).bindPopup(plate + ' LIVE GOLD').openPopup();
+          map.setView([lat, lng], 13);
         }
+
+        const localTaxis = readLocalTaxis();
+        const index = localTaxis.findIndex(item => (item.plate || '').toLowerCase() === plate.toLowerCase());
+        if (index >= 0) localTaxis[index] = taxi; else localTaxis.push(taxi);
+        saveLocalTaxis(localTaxis);
+
+        if (supabase) {
+          try {
+            await supabase.from('taxis').upsert({
+              plate,
+              route: taxi.route,
+              lat,
+              lng,
+              is_live: true,
+              is_verified: false,
+              driver_phone: taxi.driver_phone,
+              seats_left: 15
+            });
+          } catch (e) {}
+        }
+
+        alert('✅ You are LIVE GOLD on map! ' + plate);
       });
     }
 
-    // ===== STARTUP =====
-    initChips();
-    
-    if (currentPhone) {
-      document.getElementById("loginCard").style.display = "none";
-      document.getElementById("userPhone").innerText = currentPhone + " | LIVE ✅";
-      loadTaxis("All");
-    } else {
-      loadTaxis("All");
+    function readLocalMessages(key) {
+      const raw = JSON.parse(localStorage.getItem(key) || '[]');
+      return Array.isArray(raw) ? raw : [];
     }
 
-    // Refresh taxis every 10s
-    setInterval(() => {
-      if (!isDriver) {
-        const active = document.querySelector(".chip.active")?.innerText || "All";
-        loadTaxis(active);
+    function saveLocalMessages(key, items) {
+      localStorage.setItem(key, JSON.stringify(items));
+    }
+
+    async function loadChats() {
+      const groupKey = 'fourforty_group_messages';
+      const privateKey = 'fourforty_private_messages';
+
+      let groupMessages = readLocalMessages(groupKey);
+      let privateMessages = readLocalMessages(privateKey);
+
+      if (supabase) {
+        try {
+          const { data: groupData } = await supabase.from('group_messages').select('*').order('created_at', { ascending: false }).limit(20);
+          if (groupData && groupData.length) {
+            groupMessages = groupData.reverse();
+            saveLocalMessages(groupKey, groupMessages);
+          }
+
+          const { data: oneData } = await supabase.from('private_messages').select('*').order('created_at', { ascending: false }).limit(20);
+          if (oneData && oneData.length) {
+            privateMessages = oneData.reverse();
+            saveLocalMessages(privateKey, privateMessages);
+          }
+        } catch (e) {}
       }
-    }, 10000);
+
+      let html = '';
+      groupMessages.forEach(m => {
+        html += `<div><b>${m.sender || 'User'}:</b> ${m.message}</div>`;
+      });
+      document.getElementById('groupChatBox').innerHTML = html || 'No messages yet - Say Dumela!';
+
+      let html2 = '';
+      privateMessages.forEach(m => {
+        html2 += `<div><b>${m.from_phone || 'You'}:</b> ${m.message}</div>`;
+      });
+      document.getElementById('oneChatBox').innerHTML = html2 || 'No private chats yet';
+    }
+
+    async function sendGroup() {
+      const msg = document.getElementById('groupMsg').value.trim();
+      const profile = JSON.parse(localStorage.getItem('fourforty_profile') || '{}');
+      if (!msg) return;
+
+      const item = { sender: profile.name || 'You', message: msg, route: document.getElementById('groupSelect').value };
+      const groupMessages = readLocalMessages('fourforty_group_messages');
+      groupMessages.push(item);
+      saveLocalMessages('fourforty_group_messages', groupMessages);
+
+      const current = document.getElementById('groupChatBox').innerHTML;
+      document.getElementById('groupChatBox').innerHTML = current + `<div><b>${item.sender}:</b> ${item.message}</div>`;
+      document.getElementById('groupMsg').value = '';
+
+      if (supabase) {
+        try {
+          await supabase.from('group_messages').insert({ sender: item.sender, message: item.message, route: item.route });
+        } catch (e) {}
+      }
+    }
+
+    async function sendOne() {
+      const to = document.getElementById('chatToPhone').value.trim();
+      const msg = document.getElementById('oneMsg').value.trim();
+      const profile = JSON.parse(localStorage.getItem('fourforty_profile') || '{}');
+      if (!msg || !to) return;
+
+      const item = { from_phone: profile.phone || 'You', to_phone: to, message: msg };
+      const privateMessages = readLocalMessages('fourforty_private_messages');
+      privateMessages.push(item);
+      saveLocalMessages('fourforty_private_messages', privateMessages);
+
+      const cur = document.getElementById('oneChatBox').innerHTML;
+      document.getElementById('oneChatBox').innerHTML = cur + `<div><b>You to ${to}:</b> ${msg}</div>`;
+      document.getElementById('oneMsg').value = '';
+
+      if (supabase) {
+        try {
+          await supabase.from('private_messages').insert({ from_phone: item.from_phone, to_phone: to, message: msg });
+        } catch (e) {}
+      }
+    }
+
+    function sendVoice() {
+      alert('🎤 Voice Note - Hold to record - Coming soon! For now, type a message.');
+    }
+
+    function subscribePod() {
+      let count = parseInt(localStorage.getItem('pod_subs') || '0', 10) + 1;
+      localStorage.setItem('pod_subs', String(count));
+      document.getElementById('subCount').innerText = count + ' subscribers';
+      alert('✅ Subscribed to Podcast!');
+    }
+
+    function applyJob() {
+      alert('✅ Applied! Boss will WhatsApp you - Check chat');
+    }
+
+    function requestVerify() {
+      const plate = document.getElementById('verifyPlate').value.trim();
+      const proof = document.getElementById('verifyProof').value.trim();
+      const profile = JSON.parse(localStorage.getItem('fourforty_profile') || '{}');
+
+      if (!plate || !proof) {
+        alert('Enter plate + CashSend ref');
+        return;
+      }
+
+      const statusHtml = `<div class="card">⏳ Request sent for ${plate} - Ref ${proof} - Admin will verify within 24h after checking CashSend to 0655846692</div>`;
+      document.getElementById('verifyStatus').innerHTML = statusHtml;
+
+      if (supabase) {
+        try {
+          supabase.from('verifications').insert({ plate, proof, phone: profile.phone || 'N/A', status: 'pending' });
+        } catch (e) {}
+      }
+
+      window.open(`https://wa.me/27655846692?text=${encodeURIComponent(`I sent R100 CashSend for ${plate} Ref:${proof} - 4FORTY GOLD`)}`, '_blank');
+    }
+
+    window.onload = () => {
+      const profile = localStorage.getItem('fourforty_profile');
+      if (profile) {
+        document.getElementById('loginPage').style.display = 'none';
+        document.getElementById('appPage').style.display = 'block';
+        const prof = JSON.parse(profile);
+        document.getElementById('profileCard').innerHTML = `
+          <img src="${prof.pic || 'https://via.placeholder.com/100'}" style="width:50px;border-radius:50%;vertical-align:middle;margin-right:10px" />
+          <b>${prof.name}</b> ${prof.phone}<br>
+          <small>${prof.bio}</small>
+        `;
+      }
+
+      loadRoutes();
+      loadTaxis();
+      loadChats();
+    };
   </script>
 </body>
 </html>
