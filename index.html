@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>4FORTY - LIVE</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
+    body{background:#000;color:#fff}
+    .header{background:#FFD700;color:#000;padding:12px;text-align:center;position:sticky;top:0;z-index:999}
+    .live{width:10px;height:10px;background:red;border-radius:50%;display:inline-block;animation:blink 1s infinite}
+    @keyframes blink{50%{opacity:0}}
+    .tabs{display:flex;background:#111}
+    .tabs button{flex:1;padding:12px;background:#111;color:#FFD700;border:none;font-weight:bold}
+    .tabs button.active{background:#FFD700;color:#000}
+    .card{background:#111;border:1px solid #333;border-left:4px solid #FFD700;margin:10px;padding:12px;border-radius:10px}
+    .gold{border-left-color:#FFD700;background:#1a1500}
+    .btn{width:100%;padding:14px;background:#FFD700;color:#000;border:none;border-radius:8px;font-weight:bold;margin-top:8px}
+    .btn-green{background:#25D366;color:#fff}
+    input,select{width:100%;padding:12px;margin:6px 0;border-radius:8px;border:none}
+    #map{height:300px;margin:10px;border-radius:10px}
+    .route-chips{display:flex;overflow:auto;gap:8px;padding:10px}
+    .chip{white-space:nowrap;padding:8px 14px;background:#222;border:1px solid #FFD700;border-radius:20px;color:#FFD700}
+    .chip.active{background:#FFD700;color:#000}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h3>🚕 4FORTY <span class="live"></span> LIVE - 90 Routes</h3>
+    <small id="userPhone">Not logged in | Ngwathe • Parys • Sasolburg • JHB</small>
+  </div>
+
+  <div class="tabs">
+    <button class="active" onclick="showTab('passenger')">PASSENGER</button>
+    <button onclick="showTab('driver')">DRIVER</button>
+    <button onclick="showTab('map')">MAP</button>
+  </div>
+
+  <div class="card" id="loginCard">
+    <h4>🇿🇦 Login with phone</h4>
+    <input id="phone" placeholder="0796230493" value="0796230493">
+    <button class="btn" onclick="login()">LOGIN - See LIVE taxis</button>
+  </div>
+
+  <div class="route-chips" id="routeChips"></div>
+
+  <div id="passengerTab">
+    <div class="card">
+      <h4>📍 Book Taxi</h4>
+      <select id="fromRoute">
+        <option>Ngwathe</option>
+        <option>Parys</option>
+        <option>Sasolburg</option>
+        <option>Vanderbijlpark</option>
+        <option>Johannesburg</option>
+      </select>
+
+      <select id="toRoute">
+        <option>Johannesburg</option>
+        <option>Sasolburg</option>
+        <option>Parys</option>
+        <option>Ngwathe</option>
+      </select>
+
+      <input id="pName" placeholder="Your name">
+      <input id="pPhone" placeholder="Your phone">
+      <button class="btn" onclick="bookNow()">BOOK NOW - Driver calls you</button>
+      <button class="btn btn-green" onclick="waBook()">WhatsApp Book</button>
+      <div id="bookStatus" style="margin-top:8px;color:#0f0"></div>
+    </div>
+
+    <div id="taxiList"></div>
+  </div>
+
+  <div id="driverTab" style="display:none">
+    <div class="card gold">
+      <h4>🚕 Driver - GO LIVE (GOLD R100/month)</h4>
+      <input id="dPlate" placeholder="Plate e.g. GOLD-01">
+      <select id="dRoute">
+        <option>Ngwathe - JHB</option>
+        <option>Parys - JHB</option>
+        <option>Sasolburg - JHB</option>
+        <option>Ngwathe - Parys</option>
+        <option>Ngwathe - Sasolburg</option>
+      </select>
+      <button class="btn" onclick="goLive()">🔴 GO LIVE - Show on map</button>
+      <button class="btn btn-green" onclick="payGold()">Pay GOLD R100 - WhatsApp</button>
+      <div id="driverStatus"></div>
+    </div>
+  </div>
+
+  <div id="mapTab" style="display:none">
+    <div id="map"></div>
+    <div class="card"><small>Gold taxis = Yellow pins • LIVE updates every 10s</small></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = "https://YOURPROJECT.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_XXXXXXXXXXXXXXXXXXXXXXXX";
+    const supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentPhone = localStorage.getItem("phone") || "";
+    let map;
+    let markers = [];
+
+    const ROUTES = [
+      "All",
+      "Ngwathe-JHB",
+      "Parys-JHB",
+      "Sasolburg-JHB",
+      "Ngwathe-Parys",
+      "Ngwathe-Sasolburg",
+      "Vanderbijlpark-JHB",
+      "Parys-Sasolburg"
+    ];
+
+    function initChips() {
+      const c = document.getElementById("routeChips");
+      c.innerHTML = "";
+      ROUTES.forEach(r => {
+        const b = document.createElement("div");
+        b.className = "chip";
+        b.innerText = r;
+        if (r === "All") b.classList.add("active");
+        b.onclick = () => {
+          document.querySelectorAll(".chip").forEach(x => x.classList.remove("active"));
+          b.classList.add("active");
+          loadTaxis(r);
+        };
+        c.appendChild(b);
+      });
+    }
+
+    function login() {
+      const p = document.getElementById("phone").value.trim();
+      if (p.length < 10) {
+        alert("Enter valid phone");
+        return;
+      }
+
+      currentPhone = p;
+      localStorage.setItem("phone", p);
+      document.getElementById("userPhone").innerText = p + " | LIVE ✅";
+      document.getElementById("loginCard").style.display = "none";
+      document.getElementById("pPhone").value = p;
+      loadTaxis("All");
+    }
+
+    function showTab(tab) {
+      document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active"));
+      event.target.classList.add("active");
+
+      document.getElementById("passengerTab").style.display = tab === "passenger" ? "block" : "none";
+      document.getElementById("driverTab").style.display = tab === "driver" ? "block" : "none";
+      document.getElementById("mapTab").style.display = tab === "map" ? "block" : "none";
+
+      if (tab === "map") setTimeout(initMap, 200);
+    }
+
+    async function loadTaxis(filter) {
+      try {
+        let q = supa.from("taxis").select("*").limit(90).order("updated_at", { ascending: false });
+
+        if (filter && filter !== "All") {
+          const key = filter.split("-")[0];
+          q = q.ilike("route", "%" + key + "%");
+        }
+
+        const { data, error } = await q;
+        if (error) throw error;
+
+        const list = document.getElementById("taxiList");
+        list.innerHTML = "";
+
+        if (!data || data.length === 0) {
+          list.innerHTML = "<div class='card'>No GOLD taxis yet - Drivers must GO LIVE</div>";
+          updateMapMarkers([]);
+          return;
+        }
+
+        data.forEach(tx => {
+          const d = document.createElement("div");
+          d.className = "card " + (tx.is_gold ? "gold" : "");
+          d.innerHTML = `
+            <b style="color:#FFD700">${tx.plate || "GOLD"} <span class="live"></span> ${tx.is_gold ? "GOLD" : ""}</b><br>
+            <small>${tx.route || "Ngwathe-JHB"} • ${tx.driver || "Driver"} • ${tx.status || "LIVE"}</small><br>
+            <button class="btn" onclick="callDriver('${tx.phone || "0796230493"}')">📞 CALL ${tx.plate}</button>
+          `;
+          list.appendChild(d);
+        });
+
+        updateMapMarkers(data);
+      } catch (e) {
+        console.log(e);
+        document.getElementById("bookStatus").innerText = "Could not load taxis";
+      }
+    }
+
+    function initMap() {
+      if (map) return;
+      map = L.map("map").setView([-26.8, 27.8], 8);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+    }
+
+    function updateMapMarkers(data) {
+      if (!map) return;
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+
+      data.forEach(tx => {
+        if (tx.lat && tx.lng) {
+          const m = L.marker([tx.lat, tx.lng]).addTo(map).bindPopup(`${tx.plate} - ${tx.route}`);
+          markers.push(m);
+        }
+      });
+    }
+
+    async function bookNow() {
+      const from = document.getElementById("fromRoute").value;
+      const to = document.getElementById("toRoute").value;
+      const name = document.getElementById("pName").value.trim();
+      const phone = document.getElementById("pPhone").value.trim();
+
+      if (!name || !phone) {
+        alert("Name & phone required");
+        return;
+      }
+
+      const { error } = await supa.from("bookings").insert([
+        {
+          from_route: from,
+          to_route: to,
+          passenger_name: name,
+          passenger_phone: phone,
+          created_at: new Date()
+        }
+      ]);
+
+      document.getElementById("bookStatus").innerText =
+        error ? "Error: " + error.message : "✅ BOOKED! Driver will call you - GOLD priority";
+
+      if (!error) waBook();
+    }
+
+    function waBook() {
+      const from = document.getElementById("fromRoute").value;
+      const to = document.getElementById("toRoute").value;
+      const phone = currentPhone || document.getElementById("pPhone").value.trim();
+      window.open(
+        `https://wa.me/27796230493?text=BOOK 4FORTY: ${from} to ${to} - Phone ${phone}`,
+        "_blank"
+      );
+    }
+
+    function callDriver(p) {
+      window.location.href = `tel:${p}`;
+    }
+
+    async function goLive() {
+      const plate = document.getElementById("dPlate").value.trim();
+      const route = document.getElementById("dRoute").value.trim();
+
+      if (!plate) {
+        alert("Enter plate");
+        return;
+      }
+      if (!currentPhone) {
+        alert("Login first");
+        return;
+      }
+
+      const { error } = await supa.from("taxis").upsert(
+        {
+          plate,
+          route,
+          driver: currentPhone,
+          phone: currentPhone,
+          status: "LIVE",
+          is_gold: true,
+          lat: -26.8 + (Math.random() * 0.5),
+          lng: 27.8 + (Math.random() * 0.5),
+          updated_at: new Date()
+        },
+        { onConflict: "plate" }
+      );
+
+      document.getElementById("driverStatus").innerText =
+        error ? "Error " + error.message : "✅ You are LIVE GOLD on map & list!";
+
+      loadTaxis("All");
+    }
+
+    function payGold() {
+      const plate = document.getElementById("dPlate").value.trim();
+      window.open(
+        `https://wa.me/27796230493?text=I want GOLD R100/month for plate ${plate}`,
+        "_blank"
+      );
+    }
+
+    initChips();
+    if (currentPhone) {
+      document.getElementById("phone").value = currentPhone;
+      login();
+    } else {
+      loadTaxis("All");
+    }
+
+    setInterval(() => {
+      const active = document.querySelector(".chip.active")?.innerText || "All";
+      loadTaxis(active);
+    }, 10000);
+  </script>
+</body>
+</html>
